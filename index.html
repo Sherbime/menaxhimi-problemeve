@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="sq">
 <head>
-  <meta charset="UTF-8">
-  <title>Menaxhimi i Problemeve</title>
+  <meta charset="UTF-8" />
+  <title>Menaxhimi i Problemeve me Firebase</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -49,56 +49,15 @@
       border: none;
       cursor: pointer;
     }
-    /* Stil për modalin */
-    #modalModifiko {
-      display: none;
-      position: fixed;
-      top: 20%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: white;
-      border: 1px solid #ccc;
-      padding: 20px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.3);
-      z-index: 1000;
-      width: 300px;
-      border-radius: 5px;
-    }
-    #modalModifiko h3 {
-      margin-top: 0;
-      margin-bottom: 15px;
-      text-align: center;
-    }
-    #modalModifiko input[type="text"] {
-      width: 100%;
-      margin-bottom: 10px;
-      padding: 8px;
-      box-sizing: border-box;
-    }
-    #modalModifiko button {
-      padding: 8px 15px;
-      cursor: pointer;
-    }
-    #modalModifiko button:first-of-type {
-      background-color: #007BFF;
-      color: white;
-      border: none;
-    }
-    #modalModifiko button:last-of-type {
-      background-color: #6c757d;
-      color: white;
-      border: none;
-      margin-left: 10px;
-    }
   </style>
 </head>
 <body>
 
-  <h2>📋 Tabela e Problemeve</h2>
+  <h2>📋 Tabela e Problemeve me Firebase</h2>
 
   <div class="form-container">
-    <input type="text" id="problemi" placeholder="Problemi">
-    <input type="text" id="pershkrimi" placeholder="Përshkrimi">
+    <input type="text" id="problemi" placeholder="Problemi" />
+    <input type="text" id="pershkrimi" placeholder="Përshkrimi" />
     <button class="add-btn" onclick="shtoRresht()">Shto</button>
   </div>
 
@@ -117,93 +76,102 @@
     </tbody>
   </table>
 
-  <!-- Forma modale për modifikimin -->
-  <div id="modalModifiko">
-    <h3>Modifiko Problemin</h3>
-    <input type="text" id="modifikoProblemi" placeholder="Problemi">
-    <input type="text" id="modifikoPershkrimi" placeholder="Përshkrimi">
-    <button onclick="ruajNdryshimet()">Ruaj</button>
-    <button onclick="mbyllModalin()">Anulo</button>
-  </div>
+  <!-- Firebase App (the core Firebase SDK) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
-  <script>
-    let nr = 1;
-    let rreshtiModifiko = null;
+    const firebaseConfig = {
+      apiKey: "AIzaSyBija0DnZ5RQE2f1lbgOH38I86HyFhkT74",
+      authDomain: "menaxhimi-problemeve.firebaseapp.com",
+      projectId: "menaxhimi-problemeve",
+      storageBucket: "menaxhimi-probleve.firebasestorage.app",
+      messagingSenderId: "360048662808",
+      appId: "1:360048662808:web:52d4177262dcd4ef18266d",
+      measurementId: "G-7GF7L4L5Y1"
+    };
 
-    function sot() {
-      const d = new Date();
-      return d.toLocaleDateString('sq-AL');
-    }
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-    function shtoRresht() {
-      const problemi = document.getElementById('problemi').value.trim();
-      const pershkrimi = document.getElementById('pershkrimi').value.trim();
+    const tabela = document.getElementById('tabelaProblemeve').getElementsByTagName('tbody')[0];
 
-      if (!problemi || !pershkrimi) {
-        alert("Plotëso të dy fushat!");
-        return;
-      }
+    // Funksioni për të ngarkuar problemet nga Firestore në tabelë
+    async function ngarkoProblemet() {
+      tabela.innerHTML = ""; // Pastro tabelën
 
-      const tabela = document.getElementById('tabelaProblemeve').getElementsByTagName('tbody')[0];
-      const rreshti = tabela.insertRow();
+      const snapshot = await getDocs(collection(db, "problemet"));
+      let nr = 1;
 
-      rreshti.insertCell(0).innerText = nr++;
-      rreshti.insertCell(1).innerText = sot();
-      rreshti.insertCell(2).innerText = problemi;
-      rreshti.insertCell(3).innerText = pershkrimi;
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const rreshti = tabela.insertRow();
 
-      const veprimeCell = rreshti.insertCell(4);
-      veprimeCell.className = "actions";
-      veprimeCell.innerHTML = `
-        <button onclick="modifikoRresht(this)">Modifiko</button>
-        <button onclick="fshiRresht(this)">Fshi</button>
-      `;
+        rreshti.setAttribute('data-id', docSnap.id);
 
-      document.getElementById('problemi').value = "";
-      document.getElementById('pershkrimi').value = "";
-    }
+        rreshti.insertCell(0).innerText = nr++;
+        rreshti.insertCell(1).innerText = data.dataKrijimit ? new Date(data.dataKrijimit.seconds * 1000).toLocaleDateString('sq-AL') : "-";
+        rreshti.insertCell(2).innerText = data.problemi;
+        rreshti.insertCell(3).innerText = data.pershkrimi;
 
-    function fshiRresht(btn) {
-      const rreshti = btn.parentNode.parentNode;
-      rreshti.remove();
-      // Rinis numërimin në tabelë
-      rishkruajNumrat();
-    }
-
-    function rishkruajNumrat() {
-      const rreshtat = document.querySelectorAll("#tabelaProblemeve tbody tr");
-      nr = 1;
-      rreshtat.forEach(r => {
-        r.cells[0].innerText = nr++;
+        const veprimeCell = rreshti.insertCell(4);
+        veprimeCell.className = "actions";
+        veprimeCell.innerHTML = `
+          <button onclick="modifikoRresht('${docSnap.id}')">Modifiko</button>
+          <button onclick="fshiRresht('${docSnap.id}')">Fshi</button>
+        `;
       });
     }
 
-    function modifikoRresht(btn) {
-      rreshtiModifiko = btn.parentNode.parentNode;
-      document.getElementById('modifikoProblemi').value = rreshtiModifiko.cells[2].innerText;
-      document.getElementById('modifikoPershkrimi').value = rreshtiModifiko.cells[3].innerText;
-      document.getElementById('modalModifiko').style.display = 'block';
+    // Funksioni për të shtuar problem të ri në Firestore
+    async function shtoRresht() {
+      const problemi = document.getElementById('problemi').value.trim();
+      const pershkrimi = document.getElementById('pershkrimi').value.trim();
+
+      if (!problemi || !pershkrimi) return alert("Plotëso të dy fushat!");
+
+      await addDoc(collection(db, "problemet"), {
+        problemi,
+        pershkrimi,
+        dataKrijimit: serverTimestamp()
+      });
+
+      document.getElementById('problemi').value = "";
+      document.getElementById('pershkrimi').value = "";
+
+      ngarkoProblemet();
     }
 
-    function ruajNdryshimet() {
-      const problemi = document.getElementById('modifikoProblemi').value.trim();
-      const pershkrimi = document.getElementById('modifikoPershkrimi').value.trim();
-
-      if (!problemi || !pershkrimi) {
-        alert("Plotëso të dy fushat!");
-        return;
+    // Funksioni për të fshirë rreshtin nga Firestore
+    async function fshiRresht(id) {
+      if (confirm("Je i sigurt që dëshiron ta fshish këtë problem?")) {
+        await deleteDoc(doc(db, "problemet", id));
+        ngarkoProblemet();
       }
-
-      rreshtiModifiko.cells[2].innerText = problemi;
-      rreshtiModifiko.cells[3].innerText = pershkrimi;
-
-      mbyllModalin();
     }
 
-    function mbyllModalin() {
-      document.getElementById('modalModifiko').style.display = 'none';
-      rreshtiModifiko = null;
+    // Funksioni për modifikim (thjesht alert për momentin, mund ta përmirësojmë)
+    async function modifikoRresht(id) {
+      const docRef = doc(db, "problemet", id);
+      const docSnap = await getDocs(docRef);
+
+      // Për momentin përdor prompt (mund ta bëjmë modal më të mirë më vonë)
+      const problemi = prompt("Ndrysho Problemin:");
+      const pershkrimi = prompt("Ndrysho Përshkrimin:");
+
+      if (!problemi || !pershkrimi) return;
+
+      // Përditëso dokumentin në Firestore
+      await docRef.update({
+        problemi: problemi.trim(),
+        pershkrimi: pershkrimi.trim()
+      });
+
+      ngarkoProblemet();
     }
+
+    // Ngarko problemet kur hapet faqja
+    window.onload = ngarkoProblemet;
   </script>
 
 </body>
