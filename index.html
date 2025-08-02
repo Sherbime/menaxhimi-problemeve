@@ -2,7 +2,7 @@
 <html lang="sq">
 <head>
   <meta charset="UTF-8" />
-  <title>Menaxhimi i Problemeve me Firebase</title>
+  <title>Menaxhimi i Problemeve me Firestore</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -53,12 +53,12 @@
 </head>
 <body>
 
-  <h2>📋 Tabela e Problemeve me Firebase</h2>
+  <h2>📋 Tabela e Problemeve me Firestore</h2>
 
   <div class="form-container">
     <input type="text" id="problemi" placeholder="Problemi" />
     <input type="text" id="pershkrimi" placeholder="Përshkrimi" />
-    <button class="add-btn" onclick="shtoRresht()">Shto</button>
+    <button class="add-btn" id="shtoBtn">Shto</button>
   </div>
 
   <table id="tabelaProblemeve">
@@ -76,102 +76,132 @@
     </tbody>
   </table>
 
-  <!-- Firebase App (the core Firebase SDK) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      getDocs,
+      deleteDoc,
+      doc,
+      serverTimestamp,
+      orderBy,
+      query
+    } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBija0DnZ5RQE2f1lbgOH38I86HyFhkT74",
       authDomain: "menaxhimi-problemeve.firebaseapp.com",
       projectId: "menaxhimi-problemeve",
-      storageBucket: "menaxhimi-probleve.firebasestorage.app",
+      storageBucket: "menaxhimi-problemeve.appspot.com",
       messagingSenderId: "360048662808",
       appId: "1:360048662808:web:52d4177262dcd4ef18266d",
       measurementId: "G-7GF7L4L5Y1"
     };
 
+    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    const tabela = document.getElementById('tabelaProblemeve').getElementsByTagName('tbody')[0];
+    const tabelaBody = document.querySelector("#tabelaProblemeve tbody");
+    const shtoBtn = document.getElementById("shtoBtn");
 
-    // Funksioni për të ngarkuar problemet nga Firestore në tabelë
-    async function ngarkoProblemet() {
-      tabela.innerHTML = ""; // Pastro tabelën
+    // Funksioni për shtimin e rreshtit në tabelë (pa ruajtur në DB)
+    function shtoRreshtNeTabel(nr, dataKrijimit, problemi, pershkrimi, docId) {
+      const rreshti = tabelaBody.insertRow();
+      rreshti.dataset.docId = docId;
 
-      const snapshot = await getDocs(collection(db, "problemet"));
-      let nr = 1;
+      rreshti.insertCell(0).innerText = nr;
+      rreshti.insertCell(1).innerText = dataKrijimit;
+      rreshti.insertCell(2).innerText = problemi;
+      rreshti.insertCell(3).innerText = pershkrimi;
 
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const rreshti = tabela.insertRow();
+      const veprimeCell = rreshti.insertCell(4);
+      veprimeCell.className = "actions";
+      veprimeCell.innerHTML = `
+        <button class="fshiBtn">Fshi</button>
+      `;
 
-        rreshti.setAttribute('data-id', docSnap.id);
-
-        rreshti.insertCell(0).innerText = nr++;
-        rreshti.insertCell(1).innerText = data.dataKrijimit ? new Date(data.dataKrijimit.seconds * 1000).toLocaleDateString('sq-AL') : "-";
-        rreshti.insertCell(2).innerText = data.problemi;
-        rreshti.insertCell(3).innerText = data.pershkrimi;
-
-        const veprimeCell = rreshti.insertCell(4);
-        veprimeCell.className = "actions";
-        veprimeCell.innerHTML = `
-          <button onclick="modifikoRresht('${docSnap.id}')">Modifiko</button>
-          <button onclick="fshiRresht('${docSnap.id}')">Fshi</button>
-        `;
-      });
+      // Event fshirje
+      veprimeCell.querySelector(".fshiBtn").addEventListener("click", () => fshiProblemin(docId, rreshti));
     }
 
-    // Funksioni për të shtuar problem të ri në Firestore
-    async function shtoRresht() {
-      const problemi = document.getElementById('problemi').value.trim();
-      const pershkrimi = document.getElementById('pershkrimi').value.trim();
-
-      if (!problemi || !pershkrimi) return alert("Plotëso të dy fushat!");
-
-      await addDoc(collection(db, "problemet"), {
-        problemi,
-        pershkrimi,
-        dataKrijimit: serverTimestamp()
-      });
-
-      document.getElementById('problemi').value = "";
-      document.getElementById('pershkrimi').value = "";
-
-      ngarkoProblemet();
-    }
-
-    // Funksioni për të fshirë rreshtin nga Firestore
-    async function fshiRresht(id) {
-      if (confirm("Je i sigurt që dëshiron ta fshish këtë problem?")) {
-        await deleteDoc(doc(db, "problemet", id));
-        ngarkoProblemet();
+    // Funksioni për të shtuar problem në Firestore
+    async function shtoProbleminFirestore(problemi, pershkrimi) {
+      try {
+        const docRef = await addDoc(collection(db, "problemet"), {
+          problemi,
+          pershkrimi,
+          dataKrijimit: serverTimestamp()
+        });
+        return docRef.id;
+      } catch (error) {
+        alert("Gabim gjatë shtimit të problemit: " + error.message);
       }
     }
 
-    // Funksioni për modifikim (thjesht alert për momentin, mund ta përmirësojmë)
-    async function modifikoRresht(id) {
-      const docRef = doc(db, "problemet", id);
-      const docSnap = await getDocs(docRef);
-
-      // Për momentin përdor prompt (mund ta bëjmë modal më të mirë më vonë)
-      const problemi = prompt("Ndrysho Problemin:");
-      const pershkrimi = prompt("Ndrysho Përshkrimin:");
-
-      if (!problemi || !pershkrimi) return;
-
-      // Përditëso dokumentin në Firestore
-      await docRef.update({
-        problemi: problemi.trim(),
-        pershkrimi: pershkrimi.trim()
+    // Funksioni për të marrë problemet nga Firestore dhe shfaqur në tabelë
+    async function ngarkoProblemet() {
+      tabelaBody.innerHTML = ""; // pastro tabelën
+      const q = query(collection(db, "problemet"), orderBy("dataKrijimit", "desc"));
+      const snapshot = await getDocs(q);
+      let nr = 1;
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        // Për shkak se dataKrijimit është timestamp Firebase, e formatizojmë
+        let dataKrijimitStr = "";
+        if (data.dataKrijimit && data.dataKrijimit.toDate) {
+          dataKrijimitStr = data.dataKrijimit.toDate().toLocaleDateString('sq-AL');
+        }
+        shtoRreshtNeTabel(nr++, dataKrijimitStr, data.problemi, data.pershkrimi, docSnap.id);
       });
-
-      ngarkoProblemet();
     }
 
-    // Ngarko problemet kur hapet faqja
-    window.onload = ngarkoProblemet;
+    // Funksioni për fshirjen e problemit nga Firestore dhe tabela
+    async function fshiProblemin(docId, rreshti) {
+      if (confirm("Je i sigurt që dëshiron ta fshish këtë problem?")) {
+        try {
+          await deleteDoc(doc(db, "problemet", docId));
+          rreshti.remove();
+          alert("Problemi u fshi me sukses.");
+        } catch (error) {
+          alert("Gabim gjatë fshirjes: " + error.message);
+        }
+      }
+    }
+
+    // Ngjarja kur klikohet butoni Shto
+    shtoBtn.addEventListener("click", async () => {
+      const problemiInput = document.getElementById("problemi");
+      const pershkrimiInput = document.getElementById("pershkrimi");
+
+      const problemi = problemiInput.value.trim();
+      const pershkrimi = pershkrimiInput.value.trim();
+
+      if (!problemi || !pershkrimi) {
+        alert("Plotëso të dy fushat!");
+        return;
+      }
+
+      // Shto në Firestore
+      const docId = await shtoProbleminFirestore(problemi, pershkrimi);
+      if (docId) {
+        // Shto menjëherë në tabelë (data do e marrim nga Firebase, por këtu vendosim datën lokale)
+        const dataKrijimit = new Date().toLocaleDateString('sq-AL');
+        const nr = tabelaBody.rows.length + 1;
+        shtoRreshtNeTabel(nr, dataKrijimit, problemi, pershkrimi, docId);
+
+        // Pastro fushat
+        problemiInput.value = "";
+        pershkrimiInput.value = "";
+      }
+    });
+
+    // Ngarko problemet sapo të hapet faqja
+    window.addEventListener("load", () => {
+      ngarkoProblemet();
+    });
   </script>
 
 </body>
