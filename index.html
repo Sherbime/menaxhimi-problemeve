@@ -90,6 +90,7 @@
       query
     } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
+    // Firebase Config - kontrollo e vendos config tënd këtu
     const firebaseConfig = {
       apiKey: "AIzaSyBija0DnZ5RQE2f1lbgOH38I86HyFhkT74",
       authDomain: "menaxhimi-problemeve.firebaseapp.com",
@@ -100,14 +101,14 @@
       measurementId: "G-7GF7L4L5Y1"
     };
 
-    // Initialize Firebase
+    // Inicializo Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
     const tabelaBody = document.querySelector("#tabelaProblemeve tbody");
     const shtoBtn = document.getElementById("shtoBtn");
 
-    // Funksioni për shtimin e rreshtit në tabelë (pa ruajtur në DB)
+    // Funksion për shtimin e rreshtit në tabelë
     function shtoRreshtNeTabel(nr, dataKrijimit, problemi, pershkrimi, docId) {
       const rreshti = tabelaBody.insertRow();
       rreshti.dataset.docId = docId;
@@ -123,11 +124,10 @@
         <button class="fshiBtn">Fshi</button>
       `;
 
-      // Event fshirje
       veprimeCell.querySelector(".fshiBtn").addEventListener("click", () => fshiProblemin(docId, rreshti));
     }
 
-    // Funksioni për të shtuar problem në Firestore
+    // Funksion për shtimin e problemit në Firestore
     async function shtoProbleminFirestore(problemi, pershkrimi) {
       try {
         const docRef = await addDoc(collection(db, "problemet"), {
@@ -135,13 +135,14 @@
           pershkrimi,
           dataKrijimit: serverTimestamp()
         });
+        console.log("Dokumenti u shtua me ID:", docRef.id);
         return docRef.id;
       } catch (error) {
-        alert("Gabim gjatë shtimit të problemit: " + error.message);
+        console.error("Gabim gjatë shtimit të problemit:", error);
       }
     }
 
-    // Funksioni për të marrë problemet nga Firestore dhe shfaqur në tabelë
+    // Funksion për ngarkimin e problemeve nga Firestore
     async function ngarkoProblemet() {
       tabelaBody.innerHTML = ""; // pastro tabelën
       const q = query(collection(db, "problemet"), orderBy("dataKrijimit", "desc"));
@@ -149,7 +150,6 @@
       let nr = 1;
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        // Për shkak se dataKrijimit është timestamp Firebase, e formatizojmë
         let dataKrijimitStr = "";
         if (data.dataKrijimit && data.dataKrijimit.toDate) {
           dataKrijimitStr = data.dataKrijimit.toDate().toLocaleDateString('sq-AL');
@@ -158,7 +158,7 @@
       });
     }
 
-    // Funksioni për fshirjen e problemit nga Firestore dhe tabela
+    // Funksion për fshirjen e problemit nga Firestore dhe tabela
     async function fshiProblemin(docId, rreshti) {
       if (confirm("Je i sigurt që dëshiron ta fshish këtë problem?")) {
         try {
@@ -173,35 +173,34 @@
 
     // Ngjarja kur klikohet butoni Shto
     shtoBtn.addEventListener("click", async () => {
+      console.log("Shto button clicked");
       const problemiInput = document.getElementById("problemi");
       const pershkrimiInput = document.getElementById("pershkrimi");
 
       const problemi = problemiInput.value.trim();
       const pershkrimi = pershkrimiInput.value.trim();
 
+      console.log({ problemi, pershkrimi });
+
       if (!problemi || !pershkrimi) {
         alert("Plotëso të dy fushat!");
         return;
       }
 
-      // Shto në Firestore
       const docId = await shtoProbleminFirestore(problemi, pershkrimi);
       if (docId) {
-        // Shto menjëherë në tabelë (data do e marrim nga Firebase, por këtu vendosim datën lokale)
         const dataKrijimit = new Date().toLocaleDateString('sq-AL');
         const nr = tabelaBody.rows.length + 1;
         shtoRreshtNeTabel(nr, dataKrijimit, problemi, pershkrimi, docId);
 
-        // Pastro fushat
         problemiInput.value = "";
         pershkrimiInput.value = "";
       }
     });
 
-    // Ngarko problemet sapo të hapet faqja
-    window.addEventListener("load", () => {
-      ngarkoProblemet();
-    });
+    // Ngarko problemet sapo faqja të hapet
+    window.addEventListener("load", ngarkoProblemet);
+
   </script>
 
 </body>
