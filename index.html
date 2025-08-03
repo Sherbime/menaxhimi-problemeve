@@ -1,155 +1,13 @@
 <!DOCTYPE html>
 <html lang="sq">
 <head>
-  <meta charset="UTF-8" />
-  <title>Menaxhimi i Problemeve me Firestore - Modifikim</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 40px;
-      background-color: #f4f4f4;
-    }
-    h2 {
-      text-align: center;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background-color: #fff;
-    }
-    th, td {
-      padding: 12px;
-      border: 1px solid #ccc;
-      text-align: left;
-    }
-    th {
-      background-color: #007BFF;
-      color: white;
-    }
-    tr:nth-child(even) {
-      background-color: #f9f9f9;
-    }
-    .actions button {
-      margin-right: 5px;
-      padding: 5px 10px;
-      cursor: pointer;
-    }
-    .form-container {
-      margin-bottom: 20px;
-    }
-    input[type="text"] {
-      padding: 8px;
-      margin-right: 10px;
-      width: 200px;
-    }
-    button.add-btn {
-      padding: 8px 15px;
-      background-color: #28a745;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-
-    /* Modal styles */
-    #editModal {
-      display: none;
-      position: fixed;
-      z-index: 1000;
-      left: 0; top: 0;
-      width: 100%; height: 100%;
-      overflow: auto;
-      background-color: rgba(0,0,0,0.4);
-    }
-    #editModal .modal-content {
-      background-color: #fff;
-      margin: 10% auto;
-      padding: 20px;
-      border-radius: 5px;
-      width: 300px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    }
-    #editModal label {
-      display: block;
-      margin-top: 10px;
-    }
-    #editModal input[type="text"] {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-    }
-    #editModal button {
-      margin-top: 15px;
-      padding: 8px 15px;
-      cursor: pointer;
-    }
-    #editModal .close-btn {
-      background-color: #dc3545;
-      color: white;
-      border: none;
-      float: right;
-      font-weight: bold;
-    }
-    #editModal .save-btn {
-      background-color: #007BFF;
-      color: white;
-      border: none;
-      margin-right: 10px;
-    }
-  </style>
-</head>
-<body>
-
-  <h2>📋 Tabela e Problemeve me Firestore</h2>
-
-  <div class="form-container">
-    <input type="text" id="problemi" placeholder="Problemi" />
-    <input type="text" id="pershkrimi" placeholder="Përshkrimi" />
-    <button class="add-btn" id="shtoBtn">Shto</button>
-  </div>
-
-  <table id="tabelaProblemeve">
-    <thead>
-      <tr>
-        <th>Nr</th>
-        <th>Data e Krijimit</th>
-        <th>Problemi</th>
-        <th>Përshkrimi</th>
-        <th>Veprime</th>
-      </tr>
-    </thead>
-    <tbody>
-      <!-- Rreshtat do shtohen këtu -->
-    </tbody>
-  </table>
-
-  <!-- Modal per modifikim -->
-  <div id="editModal">
-    <div class="modal-content">
-      <button class="close-btn" id="closeModal">&times;</button>
-      <h3>Modifiko Problemin</h3>
-      <label for="editProblemi">Problemi</label>
-      <input type="text" id="editProblemi" />
-      <label for="editPershkrimi">Përshkrimi</label>
-      <input type="text" id="editPershkrimi" />
-      <button class="save-btn" id="saveChanges">Ruaj Ndryshimet</button>
-    </div>
-  </div>
-
+  <meta charset="UTF-8">
+  <title>Menaxhimi i Problemeve</title>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
-    import {
-      getFirestore,
-      collection,
-      addDoc,
-      getDocs,
-      deleteDoc,
-      doc,
-      updateDoc,
-      serverTimestamp,
-      orderBy,
-      query
-    } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
 
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBija0DnZ5RQE2f1lbgOH38I86HyFhkT74",
       authDomain: "menaxhimi-problemeve.firebaseapp.com",
@@ -163,38 +21,23 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    const tabelaBody = document.querySelector("#tabelaProblemeve tbody");
-    const shtoBtn = document.getElementById("shtoBtn");
-
-    // Modal elements
-    const editModal = document.getElementById("editModal");
-    const closeModalBtn = document.getElementById("closeModal");
-    const saveChangesBtn = document.getElementById("saveChanges");
-    const editProblemiInput = document.getElementById("editProblemi");
-    const editPershkrimiInput = document.getElementById("editPershkrimi");
-
+    let isAdmin = false;
     let currentEditDocId = null;
     let currentEditRow = null;
 
-    function shtoRreshtNeTabel(nr, dataKrijimit, problemi, pershkrimi, docId) {
-      const rreshti = tabelaBody.insertRow();
-      rreshti.dataset.docId = docId;
+    // Referenca HTML
+    const tabelaBody = document.querySelector("tbody");
+    const adminControls = document.getElementById("admin-controls");
+    const loginBtn = document.getElementById("loginBtn");
 
-      rreshti.insertCell(0).innerText = nr;
-      rreshti.insertCell(1).innerText = dataKrijimit;
-      rreshti.insertCell(2).innerText = problemi;
-      rreshti.insertCell(3).innerText = pershkrimi;
+    const shtoBtn = document.getElementById("shtoBtn");
+    const problemiInput = document.getElementById("problemi");
+    const pershkrimiInput = document.getElementById("pershkrimi");
 
-      const veprimeCell = rreshti.insertCell(4);
-      veprimeCell.className = "actions";
-      veprimeCell.innerHTML = `
-        <button class="modifikoBtn">Modifiko</button>
-        <button class="fshiBtn">Fshi</button>
-      `;
-
-      veprimeCell.querySelector(".fshiBtn").addEventListener("click", () => fshiProblemin(docId, rreshti));
-      veprimeCell.querySelector(".modifikoBtn").addEventListener("click", () => hapModalinPerModifikim(docId, rreshti));
-    }
+    const editModal = document.getElementById("editModal");
+    const editProblemiInput = document.getElementById("editProblemi");
+    const editPershkrimiInput = document.getElementById("editPershkrimi");
+    const saveChangesBtn = document.getElementById("saveChangesBtn");
 
     async function shtoProbleminFirestore(problemi, pershkrimi) {
       try {
@@ -203,112 +46,220 @@
           pershkrimi,
           dataKrijimit: serverTimestamp()
         });
-        console.log("Dokumenti u shtua me ID:", docRef.id);
         return docRef.id;
       } catch (error) {
-        console.error("Gabim gjatë shtimit të problemit:", error);
+        alert("Gabim gjatë shtimit: " + error.message);
       }
     }
 
-    async function ngarkoProblemet() {
-      tabelaBody.innerHTML = "";
-      const q = query(collection(db, "problemet"), orderBy("dataKrijimit", "desc"));
-      const snapshot = await getDocs(q);
-      let nr = 1;
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        let dataKrijimitStr = "";
-        if (data.dataKrijimit && data.dataKrijimit.toDate) {
-          dataKrijimitStr = data.dataKrijimit.toDate().toLocaleDateString('sq-AL');
-        }
-        shtoRreshtNeTabel(nr++, dataKrijimitStr, data.problemi, data.pershkrimi, docSnap.id);
-      });
-    }
+    function shtoRreshtNeTabel(nr, data, problemi, pershkrimi, docId) {
+      const rreshti = tabelaBody.insertRow();
+      rreshti.insertCell(0).innerText = nr;
+      rreshti.insertCell(1).innerText = data;
+      rreshti.insertCell(2).innerText = problemi;
+      rreshti.insertCell(3).innerText = pershkrimi;
 
-    async function fshiProblemin(docId, rreshti) {
-      if (confirm("Je i sigurt që dëshiron ta fshish këtë problem?")) {
-        try {
-          await deleteDoc(doc(db, "problemet", docId));
-          rreshti.remove();
-          alert("Problemi u fshi me sukses.");
-        } catch (error) {
-          alert("Gabim gjatë fshirjes: " + error.message);
-        }
+      const veprimeCell = rreshti.insertCell(4);
+      if (isAdmin) {
+        veprimeCell.innerHTML = `
+          <button onclick="modifikoRresht('${docId}', this)">Modifiko</button>
+          <button onclick="fshiRresht('${docId}', this)">Fshi</button>
+        `;
+      } else {
+        veprimeCell.innerText = "-";
       }
     }
 
-    function hapModalinPerModifikim(docId, rreshti) {
-      currentEditDocId = docId;
+    window.modifikoRresht = function(docId, btn) {
+      const rreshti = btn.closest("tr");
       currentEditRow = rreshti;
+      currentEditDocId = docId;
 
       editProblemiInput.value = rreshti.cells[2].innerText;
       editPershkrimiInput.value = rreshti.cells[3].innerText;
 
       editModal.style.display = "block";
-    }
+    };
 
-    closeModalBtn.addEventListener("click", () => {
-      editModal.style.display = "none";
-    });
-
-    // Kur klikohet jashtë modalit, mbyll modalin
-    window.addEventListener("click", (event) => {
-      if (event.target == editModal) {
-        editModal.style.display = "none";
+    window.fshiRresht = async function(docId, btn) {
+      if (!confirm("A jeni i sigurt që doni ta fshini?")) return;
+      try {
+        await deleteDoc(doc(db, "problemet", docId));
+        btn.closest("tr").remove();
+      } catch (error) {
+        alert("Gabim gjatë fshirjes: " + error.message);
       }
-    });
+    };
+
+    async function ngarkoProblemet() {
+      const querySnapshot = await getDocs(collection(db, "problemet"));
+      let nr = 1;
+      querySnapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const dataKrijimit = data.dataKrijimit?.toDate().toLocaleDateString('sq-AL') || "-";
+        shtoRreshtNeTabel(nr++, dataKrijimit, data.problemi, data.pershkrimi, docSnap.id);
+      });
+    }
 
     saveChangesBtn.addEventListener("click", async () => {
       const problemi = editProblemiInput.value.trim();
       const pershkrimi = editPershkrimiInput.value.trim();
-
-      if (!problemi || !pershkrimi) {
-        alert("Plotëso të dy fushat!");
-        return;
-      }
+      if (!problemi || !pershkrimi) return alert("Plotëso të dy fushat!");
 
       try {
         const docRef = doc(db, "problemet", currentEditDocId);
-        await updateDoc(docRef, {
-          problemi,
-          pershkrimi
-        });
-        // Përditëso tabelën në UI
+        await updateDoc(docRef, { problemi, pershkrimi });
         currentEditRow.cells[2].innerText = problemi;
         currentEditRow.cells[3].innerText = pershkrimi;
-
         editModal.style.display = "none";
-        alert("Problemi u modifikua me sukses.");
       } catch (error) {
         alert("Gabim gjatë modifikimit: " + error.message);
       }
     });
 
     shtoBtn.addEventListener("click", async () => {
-      const problemiInput = document.getElementById("problemi");
-      const pershkrimiInput = document.getElementById("pershkrimi");
-
       const problemi = problemiInput.value.trim();
       const pershkrimi = pershkrimiInput.value.trim();
-
-      if (!problemi || !pershkrimi) {
-        alert("Plotëso të dy fushat!");
-        return;
-      }
+      if (!problemi || !pershkrimi) return alert("Plotëso të dy fushat!");
 
       const docId = await shtoProbleminFirestore(problemi, pershkrimi);
       if (docId) {
-        const dataKrijimit = new Date().toLocaleDateString('sq-AL');
         const nr = tabelaBody.rows.length + 1;
+        const dataKrijimit = new Date().toLocaleDateString('sq-AL');
         shtoRreshtNeTabel(nr, dataKrijimit, problemi, pershkrimi, docId);
-
         problemiInput.value = "";
         pershkrimiInput.value = "";
       }
     });
 
+    loginBtn.addEventListener("click", () => {
+      const kodi = prompt("Vendos kodin e adminit:");
+      if (kodi === "4444") {
+        isAdmin = true;
+        adminControls.style.display = "block";
+        tabelaBody.innerHTML = ""; // rifresko
+        ngarkoProblemet();
+      } else {
+        alert("Kodi i pasaktë.");
+      }
+    });
+
+    window.addEventListener("click", e => {
+      if (e.target === editModal) editModal.style.display = "none";
+    });
+
     window.addEventListener("load", ngarkoProblemet);
   </script>
 
+  <style>
+    body {
+      font-family: Arial;
+      margin: 30px;
+      background: #f4f4f4;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+    }
+
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: left;
+    }
+
+    th {
+      background: #007BFF;
+      color: white;
+    }
+
+    tr:nth-child(even) {
+      background: #f9f9f9;
+    }
+
+    button {
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    .form-container {
+      margin-bottom: 20px;
+    }
+
+    input[type="text"] {
+      padding: 6px;
+      margin-right: 10px;
+    }
+
+    #admin-controls {
+      display: none;
+    }
+
+    /* Modal */
+    #editModal {
+      display: none;
+      position: fixed;
+      z-index: 999;
+      left: 0; top: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+    }
+
+    #editModalContent {
+      background: #fff;
+      margin: 10% auto;
+      padding: 20px;
+      width: 300px;
+      border-radius: 5px;
+    }
+
+    #editModalContent input {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>📋 Tabela e Problemeve</h2>
+  <button id="loginBtn">Hyr si Admin</button>
+
+  <div id="admin-controls" class="form-container">
+    <input type="text" id="problemi" placeholder="Problemi">
+    <input type="text" id="pershkrimi" placeholder="Përshkrimi">
+    <button id="shtoBtn">Shto</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Nr</th>
+        <th>Data e Krijimit</th>
+        <th>Problemi</th>
+        <th>Përshkrimi</th>
+        <th>Veprime</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Problemet do shfaqen këtu -->
+    </tbody>
+  </table>
+
+  <!-- Modal për Modifikim -->
+  <div id="editModal">
+    <div id="editModalContent">
+      <h3>Modifiko Problemin</h3>
+      <input type="text" id="editProblemi" placeholder="Problemi">
+      <input type="text" id="editPershkrimi" placeholder="Përshkrimi">
+      <button id="saveChangesBtn">Ruaj Ndryshimet</button>
+    </div>
+  </div>
 </body>
 </html>
